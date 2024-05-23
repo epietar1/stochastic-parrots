@@ -9,8 +9,7 @@ class FrequencyTablePredictor:
 
     def __call__(self, context):
         context = tuple(context)
-        candidates = self.follower_table[*context, :]
-        
+        candidates = self.follower_table[context]
         
         # TODO: Could be faster
         if not candidates.data: return None
@@ -25,4 +24,4 @@ class FrequencyTablePredictor:
 
     def train_one(self, context, target):
         idx = (*context, target)
-        self.follower_table[*idx] += 1
+        self.follower_table[idx] += 1
