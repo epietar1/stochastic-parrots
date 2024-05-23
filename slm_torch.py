@@ -67,4 +67,3 @@ class EmbeddingTablePredictor(FrequencyTablePredictor):
         diff, i = torch.min(errors, 0)
         return contexts[i], diff
 
-
