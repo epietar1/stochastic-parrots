@@ -1,44 +1,32 @@
 from slm import *
 from glob import glob
-
-context_length = 2
-
-def get_model(context_length):
-    #tokenizer = WhitespaceTokenizer()
-    #tokenizer = CharacterTokenizer()
-    #tokenizer = SpaceTokenizer()
-    tokenizer = Gpt2Tokenizer()
-
-    embedder = NullEmbedder()
-
-    predictor = FrequencyTablePredictor(context_length)
-
-    model = LanguageModel(
-        tokenizer=tokenizer,
-
-        #embedder=embedder,
-
-        predictor=predictor
-    )
-
-    return model
+from parrot_utils import *
+import matplotlib.pyplot as plt
 
 # Usage starts here
 
+context_length = 3
+model1_fname = 'data/20000_cr.txt'
+model2_fname = 'data/20000_en.txt'
+modelref_fname = 'data/20000_encr.txt'
 
-# Training
-def get_initial_model(filename):
-    model = get_model(context_length)
-    text = open(filename, encoding='utf-8').read()
-    text = text.replace("\n"," ")
-    tokens = model.tokenizer(text)
+model1_text = open(model1_fname, encoding='utf-8').read().replace("\n"," ")
+model2_text = open(model2_fname, encoding='utf-8').read().replace("\n"," ")
 
-    model.train(tokens)
-    return model
+model1 = get_initial_model(model1_fname, context_length)
+model2 = get_initial_model(model2_fname, context_length)
+model_ref = get_initial_model(modelref_fname, context_length)
 
-model1 = get_initial_model('data/1200_en.txt')
-model2 = get_initial_model('data/1200_es.txt')
+model_ref_entropy = get_gram_entropy(model_ref.predictor.follower_table)[1][0]
 
+print("Initial likelihoods:")
+#print(f"Model 1 log likelihood for own text {calculate_log_probability(model1,model1_text)}")
+#print(f"Model 2 log likelihood for own text {calculate_log_probability(model2,model2_text)}")
+print()
+#print(f"Model 1 log likelihood for model 2 text {calculate_log_probability(model1,model2_text)}")
+#print(f"Model 2 log likelihood for model 1 text {calculate_log_probability(model2,model1_text)}")
+
+"""
 gen_n_tokens = 100
 
 newline_token = model1.tokenizer('\n')[0]
@@ -48,52 +36,40 @@ question_token = model1.tokenizer('?')[0]
 period_token = model1.tokenizer('.')[0]
 
 stop_list = (excl_token, question_token, period_token)
+"""
 
-def get_blurb(model):
-    #init_keys = [k for k in model.predictor.follower_table.keys() if k[0] == newline_token]
-    init_contexts = list(model.predictor.follower_table.keys())
+m_count_init = 0
+model1_count_init = len(model1.predictor.follower_table.keys())
+model2_count_init = len(model2.predictor.follower_table.keys())
 
-    proposals = []
-    for context in init_contexts:
-        context_proposal = model.tokenizer.decode(context)[0]
-        #print(context_proposal)
-        if context_proposal.isupper(): 
-            proposals.append(context)
-        if len(proposals) == 0: initial_context = random.choice(init_contexts)
-        else: initial_context = random.choice(proposals)
-        
-    #initial_context = random.choice(init_keys)
+for key in model2.predictor.follower_table.keys():
 
-    out_tokens = []
-    for i, token in enumerate(model.generate(initial_context)):
-        
-        out_tokens.append(token)
-        if i > 100 and token in stop_list:
-            break
-    return out_tokens
+    if key in model1.predictor.follower_table.keys():
+        m_count_init += 1
 
-def go_chat(model1, model2, iters):
-    for i in range(iters):
-        model1_out = get_blurb(model1)
-        model2.train(model1_out)
 
-        print("EN:", model1.tokenizer.decode(model1_out).strip())
-        print()
+print("Initial counts for contexts")
+print(f"mutual: {m_count_init}")
+print(f"total model1: {model1_count_init}")
+print(f"total model2: {model2_count_init}")
 
-        model2_out = get_blurb(model2)
-        model1.train(model2_out)
-        
-        print("ES:", model2.tokenizer.decode(model2_out).strip())
-        print()
-go_chat(model1,model2,100)
-#print(model1.predictor.follower_table)
+ent1, ent2 = train(model1,model2,1500,print_every = 100, init1 = ('J','a',' '), init2 = ('O','u','i'), print_out=False)
 
-#print()
-#model = get_model(context_length)
-#text = open('sample_data/subs_1000.en', encoding='utf-8').read()
-#tokens = model.tokenizer(text)
-#print(tokens)
-    #generated_tokens = model.generate(initial_context, 100)
-    #generated_tokens = list(generated_tokens)
+plt.plot(ent1,label = "Model 1")
+plt.plot(ent2, label = "Model 2")
+plt.axhline(y=model_ref_entropy, color='r', linestyle='-', label = "Combined")
+plt.title("Entropy of language models")
+plt.ylabel("Entropy")
+plt.xlabel("Iteration (/ report every)")
+plt.legend()
+plt.show()
+#test(model1, model2, 10)
 
-    #generated_text = model.tokenizer.decode(generated_tokens)
+
+print("Final likelihoods (for original text):")
+#print(f"Model 1 log likelihood for own text {calculate_log_probability(model1,model1_text)}")
+#print(f"Model 2 log likelihood for own text {calculate_log_probability(model2,model2_text)}")
+print()
+#print(f"Model 1 log likelihood for model 2 text {calculate_log_probability(model1,model2_text)}")
+#print(f"Model 2 log likelihood for model 1 text {calculate_log_probability(model2,model1_text)}")
+print()
